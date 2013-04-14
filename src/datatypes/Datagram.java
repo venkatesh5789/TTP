@@ -30,7 +30,6 @@ public class Datagram implements Serializable {
 	
 	// Actual data
 	Object data;
-
 	
 	public Datagram() {
 		super();
@@ -144,7 +143,5 @@ public class Datagram implements Serializable {
 	 */
 	public void setData(Object data) {
 		this.data = data;
-	}
-	
-	
+	}	
 }
