@@ -6,26 +6,31 @@ import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.sql.Time;
-import java.util.Date;
-import java.util.Random;
+import java.util.HashMap;
 import java.util.Scanner;
-import java.util.zip.*;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.zip.CRC32;
+import java.util.zip.Checksum;
+
 import datatypes.Datagram;
 
 public class TTP {
 	private DatagramService ds;
 	private Datagram datagram;
+	private Datagram recdDatagram;
 	private int base;
-	private int nextseqnum;
+	private int nextSeqNum;
 	private int N;
-	private int isn;
-	private int ackn;
+	private int acknNum;
 	private Time time;
+	private Timer clock = new Timer();
+	private HashMap<Integer,Datagram> unacknowledgedPackets;
 	private static final int SYN = 0;
 	private static final int ACK = 1;
 	private static final int FIN = 2;
-	private static final int SYNACK = 3;
-				
+	private static final int DATA = 3;
+	
 	public TTP() {
 		System.out.println("Enter Send/Receive Window");
 		Scanner read = new Scanner(System.in);
@@ -37,15 +42,21 @@ public class TTP {
 	
 	public void open(InetAddress src, InetAddress dest, int srcPort, int destPort, int verbose) throws IOException {
 		ds = new DatagramService(srcPort, verbose);
-		datagram = new Datagram();
 		datagram.setSrcaddr(src.toString());
 		datagram.setDstaddr(dest.toString());
 		datagram.setSrcport((short)srcPort);
 		datagram.setDstport((short)destPort);
 		datagram.setSize((short)9);
-		datagram.setData(createPayloadHeader());
-		datagram.setChecksum(calculateChecksum(datagram));
+		datagram.setData(createPayloadHeader(TTP.SYN));
+		datagram.setChecksum(calculateChecksum(datagram));	
+		ds.sendDatagram(datagram);
 		
+		if(base == nextSeqNum) {
+			clock.schedule(new RetransmitTask(), time.getTime());
+		}
+			
+		unacknowledgedPackets.put(nextSeqNum, datagram);
+		nextSeqNum++;
 	}
 	
 	/**
@@ -55,13 +66,11 @@ public class TTP {
 	 * 					2) ACK
 	 * 					3) FIN
 	 * @return
-	 */
-	  
-	
+	 */	
 	private byte[] createPayloadHeader(int flags) {
 		byte[] header = new byte[9];
-		byte[] isnBytes = ByteBuffer.allocate(4).putInt(isn).array();
-		byte[] ackBytes = ByteBuffer.allocate(4).putInt(isn + 1).array(); 
+		byte[] isnBytes = ByteBuffer.allocate(4).putInt(nextSeqNum).array();
+		byte[] ackBytes = ByteBuffer.allocate(4).putInt(acknNum).array(); 
 		
 		switch(flags) {
 			case SYN: 
@@ -71,7 +80,7 @@ public class TTP {
 				for(int i=4; i<8; i++) {
 					header[i] = (byte)0;
 				}
-				header[8] = (byte)128;
+				header[8] = (byte)4;
 				break;
 			
 			case ACK:
@@ -79,31 +88,34 @@ public class TTP {
 					header[i] = (byte)0;
 				}
 				for(int i=4; i<8; i++) {
-					header[i] = isnBytes[i-4];
+					header[i] = ackBytes[i-4];
 				}
-				header[8] = (byte)64;
+				header[8] = (byte)2;
 				break;
 			
 			case FIN:
 				for(int i=0; i<4; i++) {
-					header[i] = ackBytes[i];
+					header[i] = (byte)0;
 				}
 				for(int i=4; i<8; i++) {
 					header[i] = (byte)0;
 				}
-				header[8] = (byte)32;
+				header[8] = (byte)1;
+				break;	
+			
+			case DATA:
+				for(int i=0; i<4; i++) {
+					header[i] = isnBytes[i];
+				}
+				for(int i=4; i<8; i++) {
+					header[i] = (byte)0;
+				}
+				header[8] = (byte)0;
 				break;
 				
 		}
 
 		return header;
-	}
-
-	public void sendData(InetAddress src, InetAddress dest, int srcPort, int destPort, byte[] data) throws IOException  {
-		datagram.setData(data);
-		datagram.setChecksum(calculateChecksum(datagram));			
-		ds.sendDatagram(datagram);
-		System.out.println("Sent datagram");
 	}
 	
 	public short calculateChecksum(Datagram datagram) throws IOException {
@@ -114,5 +126,77 @@ public class TTP {
 		byte[] data = bStream.toByteArray();
 		checksum.update(data,0,data.length);
 		return (short)checksum.getValue();
+	}
+	
+	public void sendData(byte[] data) throws IOException  {
+		
+		if(nextSeqNum< base + N) {
+			byte[] header = createPayloadHeader(TTP.DATA);
+			
+			byte[] headerPlusData = new byte[data.length + header.length];
+			System.arraycopy(header, 0, headerPlusData, 0, header.length);
+			System.arraycopy(data, 0, headerPlusData, header.length, data.length);
+			
+			datagram.setData(headerPlusData);
+			datagram.setChecksum(calculateChecksum(datagram));			
+			ds.sendDatagram(datagram);
+			
+			if(base == nextSeqNum) {
+				clock.schedule(new RetransmitTask(), time.getTime());
+			}
+			
+			unacknowledgedPackets.put(nextSeqNum, datagram);
+			nextSeqNum++;
+		}
+		else {
+			refuse_data(data);
+		}
+		System.out.println("Sent datagram");
+	}
+	
+	private void refuse_data(byte[] data2) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	public void receiveData() throws IOException, ClassNotFoundException {
+		recdDatagram = ds.receiveDatagram(); 
+		
+		byte[] data = (byte[]) recdDatagram.getData();
+		
+		if(data[8]== (byte)2) {
+			if(byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) >= base) {
+				
+			}
+		}
+	}
+	
+	public static int byteArrayToInt(byte[] b) 
+	{
+	    int value = 0;
+	    for (int i = 0; i < 4; i++) {
+	        int shift = (4 - 1 - i) * 8;
+	        value += (b[i] & 0x000000FF) << shift;
+	    }
+	    return value;
+	}
+
+	public static byte[] intToByteArray(int a)
+	{
+	    byte[] ret = new byte[4];
+	    ret[0] = (byte) (a & 0xFF);   
+	    ret[1] = (byte) ((a >> 8) & 0xFF);   
+	    ret[2] = (byte) ((a >> 16) & 0xFF);   
+	    ret[3] = (byte) ((a >> 24) & 0xFF);
+	    return ret;
+	}
+	
+	class RetransmitTask extends TimerTask {
+
+		@Override
+		public void run() {
+			
+		}
+		
 	}
 }
