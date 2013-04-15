@@ -19,10 +19,12 @@ public class TTP {
 	private int nextseqnum;
 	private int N;
 	private int isn;
+	private int ackn;
 	private Time time;
 	private static final int SYN = 0;
 	private static final int ACK = 1;
 	private static final int FIN = 2;
+	private static final int SYNACK = 3;
 				
 	public TTP() {
 		System.out.println("Enter Send/Receive Window");
@@ -45,10 +47,55 @@ public class TTP {
 		datagram.setChecksum(calculateChecksum(datagram));
 		
 	}
-	private byte[] createPayloadHeader() {
+	
+	/**
+	 * 
+	 * @param flags- The flags list is-
+	 * 					1) SYN
+	 * 					2) ACK
+	 * 					3) FIN
+	 * @return
+	 */
+	  
+	
+	private byte[] createPayloadHeader(int flags) {
 		byte[] header = new byte[9];
 		byte[] isnBytes = ByteBuffer.allocate(4).putInt(isn).array();
+		byte[] ackBytes = ByteBuffer.allocate(4).putInt(isn + 1).array(); 
 		
+		switch(flags) {
+			case SYN: 
+				for(int i=0; i<4; i++) {
+					header[i] = isnBytes[i];
+				}
+				for(int i=4; i<8; i++) {
+					header[i] = (byte)0;
+				}
+				header[8] = (byte)128;
+				break;
+			
+			case ACK:
+				for(int i=0; i<4; i++) {
+					header[i] = (byte)0;
+				}
+				for(int i=4; i<8; i++) {
+					header[i] = isnBytes[i-4];
+				}
+				header[8] = (byte)64;
+				break;
+			
+			case FIN:
+				for(int i=0; i<4; i++) {
+					header[i] = ackBytes[i];
+				}
+				for(int i=4; i<8; i++) {
+					header[i] = (byte)0;
+				}
+				header[8] = (byte)32;
+				break;
+				
+		}
+
 		return header;
 	}
 
@@ -58,6 +105,7 @@ public class TTP {
 		ds.sendDatagram(datagram);
 		System.out.println("Sent datagram");
 	}
+	
 	public short calculateChecksum(Datagram datagram) throws IOException {
 		Checksum checksum = new CRC32();
 		ByteArrayOutputStream bStream = new ByteArrayOutputStream(1500);
