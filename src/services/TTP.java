@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.sql.Time;
 import java.util.HashMap;
@@ -19,7 +20,6 @@ public class TTP {
 	private DatagramService ds;
 	private Datagram datagram;
 	private Datagram recdDatagram;
-	private Datagram responseDatagram;
 	private int base;
 	private int nextSeqNum;
 	private int N;
@@ -60,6 +60,9 @@ public class TTP {
 			
 		unacknowledgedPackets.put(nextSeqNum, datagram);
 		nextSeqNum++;
+	}
+	public void open(int srcPort, int verbose) throws SocketException {
+		ds = new DatagramService(srcPort, verbose);
 	}
 	
 	/**
@@ -206,29 +209,36 @@ public class TTP {
 	}
 	
 	private void refuse_data(byte[] data) {
-		// TODO Auto-generated method stub
-		
+	
 	}
 
 	public byte[] receiveData() throws IOException, ClassNotFoundException {
 		recdDatagram = ds.receiveDatagram(); 
 		
 		byte[] data = (byte[]) recdDatagram.getData();
-		byte[] app_data = new byte[data.length - 9];
+		byte[] app_data = null;
 		
 		if (recdDatagram.getSize() > 9) {
-			for (int i=0; i < app_data.length; i++) {
-				app_data[i] = data[i+9];
+			if (byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
+				acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+				app_data = new byte[data.length - 9];
+				for (int i=0; i < app_data.length; i++) {
+					app_data[i] = data[i+9];
+				}
+				sendAcknowledgement();
+				expectedSeqNum++;
+			} else {
+				sendAcknowledgement();
 			}
 		} else {
 			if (data[8] == (byte)4) {				
 				acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
 				expectedSeqNum =  acknNum + 1;
-				responseDatagram.setSrcaddr(recdDatagram.getDstaddr());
-				responseDatagram.setDstaddr(recdDatagram.getSrcaddr());
-				responseDatagram.setSrcport(recdDatagram.getDstport());
-				responseDatagram.setDstport(recdDatagram.getSrcport());
-				responseDatagram.setSize((short)9);
+				datagram.setSrcaddr(recdDatagram.getDstaddr());
+				datagram.setDstaddr(recdDatagram.getSrcaddr());
+				datagram.setSrcport(recdDatagram.getDstport());
+				datagram.setDstport(recdDatagram.getSrcport());
+				datagram.setSize((short)9);
 				sendAcknowledgement();
 			}
 			if(data[8]== (byte)2) {
@@ -245,7 +255,7 @@ public class TTP {
 	}
 	
 	public void sendAcknowledgement() {
-		responseDatagram.setData(createPayloadHeader(ACK));
+		datagram.setData(createPayloadHeader(ACK));
 	}
 	
 	public static int byteArrayToInt(byte[] b) 
@@ -272,7 +282,14 @@ public class TTP {
 
 		@Override
 		public void run() {
-			
+			for (Datagram d: unacknowledgedPackets.values()) {
+				try {
+					ds.sendDatagram(d);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			clock.schedule(new RetransmitTask(), time.getTime());
 		}
 		
 	}
