@@ -66,6 +66,7 @@ public class TTP {
 	 * 					1) SYN
 	 * 					2) ACK
 	 * 					3) FIN
+	 * 					4) EOF
 	 * @return
 	 */	
 	private byte[] createPayloadHeader(int flags) {
@@ -113,6 +114,7 @@ public class TTP {
 				}
 				header[8] = (byte)0;
 				break;
+				
 			case EOFDATA:
 				for(int i=0; i<4; i++) {
 					header[i] = isnBytes[i];
