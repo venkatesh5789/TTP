@@ -19,10 +19,12 @@ public class TTP {
 	private DatagramService ds;
 	private Datagram datagram;
 	private Datagram recdDatagram;
+	private Datagram responseDatagram;
 	private int base;
 	private int nextSeqNum;
 	private int N;
 	private int acknNum;
+	private int expectedSeqNum;
 	private Time time;
 	private Timer clock = new Timer();
 	private HashMap<Integer,Datagram> unacknowledgedPackets;
@@ -91,6 +93,7 @@ public class TTP {
 					header[i] = ackBytes[i-4];
 				}
 				header[8] = (byte)2;
+				isnBytes = ByteBuffer.allocate(4).putInt(-1).array();
 				break;
 			
 			case FIN:
@@ -138,6 +141,7 @@ public class TTP {
 			System.arraycopy(data, 0, headerPlusData, header.length, data.length);
 			
 			datagram.setData(headerPlusData);
+			datagram.setSize((short)headerPlusData.length);
 			datagram.setChecksum(calculateChecksum(datagram));			
 			ds.sendDatagram(datagram);
 			
@@ -154,23 +158,47 @@ public class TTP {
 		System.out.println("Sent datagram");
 	}
 	
-	private void refuse_data(byte[] data2) {
+	private void refuse_data(byte[] data) {
 		// TODO Auto-generated method stub
 		
 	}
 
-	public void receiveData() throws IOException, ClassNotFoundException {
+	public byte[] receiveData() throws IOException, ClassNotFoundException {
 		recdDatagram = ds.receiveDatagram(); 
 		
 		byte[] data = (byte[]) recdDatagram.getData();
+		byte[] app_data = new byte[data.length - 9];
 		
-		if(data[8]== (byte)2) {
-			if(byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) >= base) {
-				
+		if (recdDatagram.getSize() > 9) {
+			for (int i=0; i < app_data.length; i++) {
+				app_data[i] = data[i+9];
+			}
+		} else {
+			if (data[8] == (byte)4) {				
+				acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+				expectedSeqNum =  acknNum + 1;
+				responseDatagram.setSrcaddr(recdDatagram.getDstaddr());
+				responseDatagram.setDstaddr(recdDatagram.getSrcaddr());
+				responseDatagram.setSrcport(recdDatagram.getDstport());
+				responseDatagram.setDstport(recdDatagram.getSrcport());
+				responseDatagram.setSize((short)9);
+				sendAcknowledgement();
+			}
+			if(data[8]== (byte)2) {
+				base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
+				if(base == nextSeqNum) {
+					clock.cancel();
+				} else {
+					clock.cancel();
+					clock.schedule(new RetransmitTask(), time.getTime());
+				}
 			}
 		}
+		return app_data;
 	}
-	
+	public void sendAcknowledgement() {
+		responseDatagram.setData(createPayloadHeader(ACK));
+	}
 	public static int byteArrayToInt(byte[] b) 
 	{
 	    int value = 0;
