@@ -30,6 +30,7 @@ public class TTP {
 	private static final int ACK = 1;
 	private static final int FIN = 2;
 	private static final int DATA = 3;
+	private static final int EOFDATA = 4;
 	
 	public TTP() {
 		System.out.println("Enter Send/Receive Window");
@@ -112,6 +113,15 @@ public class TTP {
 				}
 				header[8] = (byte)0;
 				break;
+			case EOFDATA:
+				for(int i=0; i<4; i++) {
+					header[i] = isnBytes[i];
+				}
+				for(int i=4; i<8; i++) {
+					header[i] = (byte)0;
+				}
+				header[8] = (byte)8;
+				break;
 				
 		}
 
@@ -131,22 +141,32 @@ public class TTP {
 	public void sendData(byte[] data) throws IOException  {
 		
 		if(nextSeqNum< base + N) {
-			byte[] header = createPayloadHeader(TTP.DATA);
-			
-			byte[] headerPlusData = new byte[data.length + header.length];
-			System.arraycopy(header, 0, headerPlusData, 0, header.length);
-			System.arraycopy(data, 0, headerPlusData, header.length, data.length);
-			
-			datagram.setData(headerPlusData);
-			datagram.setChecksum(calculateChecksum(datagram));			
-			ds.sendDatagram(datagram);
-			
-			if(base == nextSeqNum) {
-				clock.schedule(new RetransmitTask(), time.getTime());
+
+			int lengthOfData = data.length;
+			byte[] fragment = new byte[1451];
+			int dataCounter = 0;
+			int currentCounter;
+
+			if(lengthOfData > 1451) {
+
+				while(lengthOfData > 0) {
+					lengthOfData -= 1451;
+					currentCounter = dataCounter;
+
+					for(int i = currentCounter; i< currentCounter + 1451; dataCounter++, i++) {
+						fragment[i%1451] = data[i];
+					}
+					
+					if(lengthOfData > 1451)
+						encapsulateAndSendFragment(fragment, false);
+					else
+						encapsulateAndSendFragment(fragment, true);
+				}
 			}
-			
-			unacknowledgedPackets.put(nextSeqNum, datagram);
-			nextSeqNum++;
+			else {
+				fragment = data.clone();
+				encapsulateAndSendFragment(fragment, true);
+			}
 		}
 		else {
 			refuse_data(data);
@@ -154,8 +174,35 @@ public class TTP {
 		System.out.println("Sent datagram");
 	}
 	
-	private void refuse_data(byte[] data2) {
+	private void encapsulateAndSendFragment (byte[] fragment, boolean lastFragment) throws IOException {
+		
+		byte[] header = new byte[9];
+		if(lastFragment) {
+			header = createPayloadHeader(TTP.EOFDATA);
+		}
+		else {
+			header = createPayloadHeader(TTP.DATA);
+		}
+			
+		byte[] headerPlusData = new byte[fragment.length + header.length];
+		System.arraycopy(header, 0, headerPlusData, 0, header.length);
+		System.arraycopy(fragment, 0, headerPlusData, header.length, fragment.length);
+		
+		datagram.setData(headerPlusData);
+		datagram.setChecksum(calculateChecksum(datagram));			
+		ds.sendDatagram(datagram);
+		
+		if(base == nextSeqNum) {
+			clock.schedule(new RetransmitTask(), time.getTime());
+		}
+		
+		unacknowledgedPackets.put(nextSeqNum, datagram);
+		nextSeqNum++;
+	}
+	
+	private void refuse_data(byte[] data) {
 		// TODO Auto-generated method stub
+		
 		
 	}
 
