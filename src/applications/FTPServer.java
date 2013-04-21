@@ -1,10 +1,12 @@
 package applications;
-
 import java.io.IOException;
 import java.net.SocketException;
 import java.util.Scanner;
 
-import services.TTP;
+import services.TTPClient;
+import services.TTPServer;
+
+
 
 public class FTPServer {
 
@@ -15,19 +17,18 @@ public class FTPServer {
 		int port = read.nextInt();
 
 		System.out.println("FTP Server is listening on Port " + port);
-
-		try {	
-			TTP ttp = new TTP();
-			ttp.open(port,10);
-
-			boolean listening = true;
-			String fileName = null;
-
+		
+		TTPServer ttp_server = new TTPServer();
+		
+		boolean listening = true;
+		
+		try {
+			ttp_server.listen(port,10);
+			
 			while (listening) {
-				byte[] fileRequest = ttp.receiveData();
-				if (fileRequest != null) {
-					fileName = fileRequest.toString();
-				}
+				Thread serviceClient = new Thread(new ProxyFTPServer(ttp_server.acceptConn()));
+				serviceClient.start();
+				System.out.println("FTP Server continues listening..");
 			}
 			
 		} catch (SocketException e) {
@@ -36,8 +37,10 @@ public class FTPServer {
 			e.printStackTrace();
 		} catch (ClassNotFoundException e) {
 			e.printStackTrace();
-		} catch (Exception e) {
-			e.printStackTrace();
 		}
+
+		
+	
 	}
 }
+
