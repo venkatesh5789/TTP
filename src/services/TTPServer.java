@@ -24,7 +24,7 @@ public class TTPServer {
 				int acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
 				server_ttp.setAcknNum(acknNum) ;
 				server_ttp.setExpectedSeqNum(acknNum + 1);				
-				server_ttp.open(request.getDstaddr(), request.getSrcaddr(), (short)new DatagramSocket().getPort(), request.getSrcport(), 10, TTPClient.SYNACK);
+				server_ttp.open(request.getDstaddr(), request.getSrcaddr(), (short)new DatagramSocket().getPort(), request.getSrcport(), 10, TTPClient.SYNACK, ds);
 				System.out.println("Received SYN from:" + request.getSrcaddr() + ":" + request.getSrcport());
 			}
 			

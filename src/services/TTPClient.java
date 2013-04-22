@@ -31,6 +31,7 @@ public class TTPClient {
 	private int acknNum;
 	private int expectedSeqNum;
 	private int time;
+	private int eofSeqNum;
 	private Timer clock;
 	private HashMap<Integer,Datagram> unacknowledgedPackets;
 	
@@ -70,9 +71,13 @@ public class TTPClient {
 	}
 
 	public void open(String src, String dest, short srcPort,
-			short destPort, int verbose, int flag) throws IOException, ClassNotFoundException {
+			short destPort, int verbose, int flag, DatagramService ds) throws IOException, ClassNotFoundException {
 			
-		this.ds = new DatagramService(srcPort, verbose);
+		if (ds == null) {
+			this.ds = new DatagramService(srcPort, verbose);
+		} else {
+			this.ds = ds;
+		}
 
 		datagram.setSrcaddr(src);
 		datagram.setDstaddr(dest);

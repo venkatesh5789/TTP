@@ -25,7 +25,7 @@ public class FTPClient {
 
 		TTPClient client = new TTPClient();
 		try {
-			client.open("127.0.0.1", "127.0.0.1", (short)srcPort, (short)dstPort, 10, TTPClient.SYN);
+			client.open("127.0.0.1", "127.0.0.1", (short)srcPort, (short)dstPort, 10, TTPClient.SYN, null);
 			client.sendData(fileName.getBytes());
 			
 			boolean listening = true;
