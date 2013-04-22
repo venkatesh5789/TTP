@@ -5,12 +5,12 @@ import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 
-import services.TTPClient;
+import services.TTPConnEndPoint;
 
 public class ProxyFTPServer implements Runnable {
-	private TTPClient client_endpoint;
+	private TTPConnEndPoint client_endpoint;
 		
-	public ProxyFTPServer(TTPClient client_endpoint) {
+	public ProxyFTPServer(TTPConnEndPoint client_endpoint) {
 		super();
 		this.client_endpoint = client_endpoint;
 	}

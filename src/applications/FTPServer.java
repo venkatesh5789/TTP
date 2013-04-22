@@ -3,7 +3,7 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.util.Scanner;
 
-import services.TTPClient;
+import services.TTPConnEndPoint;
 import services.TTPServer;
 
 
@@ -23,7 +23,7 @@ public class FTPServer {
 		boolean listening = true;
 		
 		try {
-			ttp_server.listen(port,10);
+			ttp_server.open(port,10);
 			
 			while (listening) {
 				Thread serviceClient = new Thread(new ProxyFTPServer(ttp_server.acceptConn()));

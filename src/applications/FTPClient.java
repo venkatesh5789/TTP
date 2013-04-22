@@ -3,7 +3,7 @@ package applications;
 import java.io.IOException;
 import java.util.Scanner;
 
-import services.TTPClient;
+import services.TTPConnEndPoint;
 
 public class FTPClient {
 
@@ -23,9 +23,9 @@ public class FTPClient {
 		Scanner readfile = new Scanner(System.in);
 		String fileName = readfile.nextLine();
 
-		TTPClient client = new TTPClient();
+		TTPConnEndPoint client = new TTPConnEndPoint();
 		try {
-			client.open("127.0.0.1", "127.0.0.1", (short)srcPort, (short)dstPort, 10, TTPClient.SYN);
+			client.open("127.0.0.1", "127.0.0.1", (short)srcPort, (short)dstPort, 10, TTPConnEndPoint.SYN, null);
 			client.sendData(fileName.getBytes());
 			
 			boolean listening = true;

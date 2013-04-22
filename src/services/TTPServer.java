@@ -4,32 +4,38 @@ package services;
 import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.SocketException;
+import java.util.HashMap;
 
 import datatypes.Datagram;
 
 public class TTPServer {
 	private DatagramService ds;
+	private HashMap<String, TTPConnEndPoint> openConnections= new HashMap<String, TTPConnEndPoint>();
 	
-	public void listen(int srcPort, int verbose) throws SocketException {
+	
+	public void open(int srcPort, int verbose) throws SocketException {
 		ds = new DatagramService(srcPort, verbose);
 	}
 	
-	public TTPClient acceptConn() throws IOException, ClassNotFoundException {
+	public TTPConnEndPoint acceptConn() throws IOException, ClassNotFoundException {
 		Datagram request = ds.receiveDatagram(); 
 		byte[] data = (byte[]) request.getData();
-		TTPClient server_ttp = null;
+		TTPConnEndPoint server_endPoint = null;
 		
 			if (data[8] == (byte)4) {
-				server_ttp = new TTPClient();
-				int acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
-				server_ttp.setAcknNum(acknNum) ;
-				server_ttp.setExpectedSeqNum(acknNum + 1);				
-				server_ttp.open(request.getDstaddr(), request.getSrcaddr(), (short)new DatagramSocket().getPort(), request.getSrcport(), 10, TTPClient.SYNACK);
+				server_endPoint = new TTPConnEndPoint(ds);
+				openConnections.put(request.getSrcaddr() + ":" + request.getSrcport(), server_endPoint);
+				server_endPoint.respond(request);
+				/*int acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+				server_endPoint.setAcknNum(acknNum) ;
+				server_endPoint.setExpectedSeqNum(acknNum + 1);				
+				server_endPoint.open(request.getDstaddr(), request.getSrcaddr(), (short)new DatagramSocket().getPort(), request.getSrcport(), 10, TTPConnEndPoint.SYNACK, ds);*/
 				System.out.println("Received SYN from:" + request.getSrcaddr() + ":" + request.getSrcport());
 			}
 			
-			return server_ttp;	
+			return server_endPoint;	
 	}	
+	
 	public static int byteArrayToInt(byte[] b) {
 		int value = 0;
 		for (int i = 0; i < 4; i++) {
