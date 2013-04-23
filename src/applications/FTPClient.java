@@ -25,7 +25,7 @@ public class FTPClient {
 
 		TTPConnEndPoint client = new TTPConnEndPoint();
 		try {
-			client.open("127.0.0.1", "127.0.0.1", (short)srcPort, (short)dstPort, 10, TTPConnEndPoint.SYN, null);
+			client.open("127.0.0.1", "127.0.0.1", (short)srcPort, (short)dstPort, 10);
 			client.sendData(fileName.getBytes());
 			
 			boolean listening = true;
