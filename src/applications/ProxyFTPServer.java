@@ -2,47 +2,56 @@ package applications;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.IOException;
-
-import services.TTPConnEndPoint;
+import services.TTPServer;
 
 public class ProxyFTPServer implements Runnable {
-	private TTPConnEndPoint client_endpoint;
-		
-	public ProxyFTPServer(TTPConnEndPoint client_endpoint) {
+	private TTPServer ttp;
+	private byte[] data;
+
+	public ProxyFTPServer(TTPServer ttp, byte[] data) {
 		super();
-		this.client_endpoint = client_endpoint;
+		this.ttp = ttp;
+		this.data = data;
 	}
 
 	@Override
 	public void run() {
-		byte[] data;
-		String fileName = null;
+		System.out.println("Servicing FTP Client...");
 		try {
-			data = client_endpoint.receiveData();
+			byte[] temp = new byte[data.length - 5];
+			System.arraycopy(data, 5, temp, 0, data.length-5);
 			
-			if (data!=null) {
-				fileName = data.toString();
-				System.out.println("File Requested:" + fileName);
-				
-				File file = new File(fileName);
-				FileInputStream fs = new FileInputStream(file);
-				byte[] fileData = new byte[(int)file.length()];
-				fs.read(fileData, 0, (int)file.length());
-				fs.close();
-				
-				client_endpoint.sendData(fileData);
-				System.out.println("File Sent!");
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (ClassNotFoundException e) {
+			String fileName = new String(temp,"US-ASCII");
+
+			System.out.println("File Requested:" + fileName);
+
+			byte[] clientInfo = new byte[5];
+			System.arraycopy(data, 0, clientInfo, 0, 5);
+
+			File file = new File(fileName.toString());
+			FileInputStream fs = new FileInputStream(file);
+			byte[] fileData = new byte[(int)file.length()];
+
+			fs.read(fileData, 0, (int)file.length());
+
+			fs.close();
+			System.out.println("Will send requested file shortly..!");
+			
+			byte[] totalData = new byte[(int)file.length() + 5];
+			System.arraycopy(clientInfo, 0, totalData, 0, 5);
+			System.arraycopy(fileData, 0, totalData, 5, (int)file.length());
+
+			ttp.send(totalData);
+			System.out.println("File Sent!");
+		} 
+		catch (IOException e) {
 			e.printStackTrace();
 		}
-		
-		
-		
+
+
+
+
 
 	}
 

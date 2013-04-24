@@ -15,6 +15,9 @@ import java.util.Iterator;
 import java.util.Random;
 import java.util.Scanner;
 import javax.swing.Timer;
+
+import applications.client;
+
 import java.util.TimerTask;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
@@ -33,7 +36,6 @@ public class TTPConnEndPoint {
 	private int time;
 	private Timer clock;
 	private HashMap<Integer,Datagram> unacknowledgedPackets;
-	private ArrayList<byte[]> buffer = new ArrayList<byte[]>();
 
 	public static final int SYN = 0;
 	public static final int ACK = 1;
@@ -59,7 +61,6 @@ public class TTPConnEndPoint {
 
 		Random rand = new Random();
 		nextSeqNum = rand.nextInt(65536);
-		System.out.println("ISN:" + nextSeqNum);
 	}
 	
 	public TTPConnEndPoint(DatagramService ds) {
@@ -79,7 +80,7 @@ public class TTPConnEndPoint {
 		datagram.setData(createPayloadHeader(TTPConnEndPoint.SYN));
 		datagram.setChecksum(calculateChecksum(datagram));
 		this.ds.sendDatagram(datagram);
-		System.out.println("SYN sent to " + datagram.getDstaddr() + ":" + datagram.getDstport());
+		System.out.println("SYN sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with ISN " + nextSeqNum);
 
 		base = nextSeqNum;
 		clock.start();
@@ -90,15 +91,6 @@ public class TTPConnEndPoint {
 		receiveData();
 	}
 
-	/**
-	 * 
-	 * @param flags
-	 * 					1) SYN
-	 * 					2) ACK
-	 * 					3) FIN
-	 * 					4) EOF
-	 * @return
-	 */
 	private byte[] createPayloadHeader(int flags) {
 		byte[] header = new byte[9];
 		byte[] isnBytes = ByteBuffer.allocate(4).putInt(nextSeqNum).array();
@@ -164,8 +156,6 @@ public class TTPConnEndPoint {
 			header[8] = (byte) 6;
 			break;
 		}
-		System.out.println("Payload Header:" + header.toString());
-		System.out.println("ISN:" + nextSeqNum);
 		return header;
 	}
 
@@ -226,9 +216,10 @@ public class TTPConnEndPoint {
 		System.arraycopy(fragment, 0, headerPlusData, header.length, fragment.length);
 
 		datagram.setData(headerPlusData);
+		datagram.setSize((short)headerPlusData.length);
 		datagram.setChecksum(calculateChecksum(datagram));
 		ds.sendDatagram(datagram);
-		System.out.println("Sent datagram with sequence no:" + nextSeqNum);
+		System.out.println("Data sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with Seq no " + nextSeqNum);
 
 		if (base == nextSeqNum) {
 			clock.restart();
@@ -239,7 +230,7 @@ public class TTPConnEndPoint {
 	}
 
 	private void refuse_data(byte[] data) {
-
+		System.out.println("Send Window full! Please try again later!");
 	}
 
 	public byte[] receiveData() throws IOException, ClassNotFoundException {
@@ -276,7 +267,7 @@ public class TTPConnEndPoint {
 				expectedSeqNum =  acknNum + 1;
 				base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
 				clock.stop();
-				System.out.println("Received SYNACK with seq no:" + acknNum);
+				System.out.println("Received SYNACK with seq no:" + acknNum + " and Acknowledgement No " + (base-1));
 				sendAcknowledgement();
 			}
 			if(data[8]== (byte)2) {
@@ -355,23 +346,9 @@ public class TTPConnEndPoint {
 		return ret;
 	}
 
-	/*class RetransmitTask extends TimerTask {
-
-		@Override
-		public void run() {
-			for (Datagram d: unacknowledgedPackets.values()) {
-				try {
-					ds.sendDatagram(d);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-			clock.schedule(new RetransmitTask(), time.getTime());
-		}
-
-	}*/
 	ActionListener listener = new ActionListener(){
 		public void actionPerformed(ActionEvent event){
+			System.out.println("Timeout for Packet " + base);
 			for (Datagram d: unacknowledgedPackets.values()) {
 				try {
 					ds.sendDatagram(d);
@@ -383,15 +360,24 @@ public class TTPConnEndPoint {
 		}
 	};
 
-	public void respond(Datagram request) throws IOException, ClassNotFoundException {
+	public void respond(Datagram request, TTPServer parent) throws IOException, ClassNotFoundException {
 
 		byte[] data = (byte[]) request.getData();
 		byte[] app_data = null;
-
+		byte[] clientInfo = new byte[5];
+				
 		if (request.getSize() > 9) {
 			if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
 				acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
+				
+				String[] temp = datagram.getDstaddr().split("\\.");				
+				for (int i=0;i<4;i++) {
+					clientInfo[i] = (byte) (Integer.parseInt(temp[i]));
+				}
+				clientInfo[4] = (byte)datagram.getDstport();
+				
 				if(data[8]==8) {
+					System.out.println("Received data from " + datagram.getDstaddr() + ":" + datagram.getDstport());
 					app_data = new byte[data.length - 9];
 					for (int i=0; i < app_data.length; i++) {
 						app_data[i] = data[i+9];
@@ -422,6 +408,8 @@ public class TTPConnEndPoint {
 				this.ds.sendDatagram(datagram);
 				System.out.println("SYNACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport());
 				
+				expectedSeqNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]}) + 1;
+						
 				base = nextSeqNum;
 				clock.start();
 
@@ -448,15 +436,12 @@ public class TTPConnEndPoint {
 			}
 		}
 		if (app_data != null) {
-			buffer.add(app_data);
+			byte[] totalData = new byte[clientInfo.length + app_data.length];
+			System.arraycopy(clientInfo, 0, totalData, 0, clientInfo.length);
+			System.arraycopy(app_data, 0, totalData, clientInfo.length, app_data.length);
+			parent.addData(totalData);
+			System.out.println("Data written to TTPServer buffer");
 		}
 	}
-	public byte[] getRequest() {
-		byte[] data = null;
-		if (! buffer.isEmpty()) {
-			data = buffer.get(0);
-		}
-		buffer.remove(0);
-		return data;
-	}
+
 }
