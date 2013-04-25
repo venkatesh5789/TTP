@@ -1,5 +1,8 @@
 package applications;
 
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Scanner;
 
@@ -22,6 +25,7 @@ public class FTPClient {
 		System.out.println("Enter file name");
 		Scanner readfile = new Scanner(System.in);
 		String fileName = readfile.nextLine();
+		String path = System.getProperty("user.dir") + "/ClientFiles/";
 
 		TTPConnEndPoint client = new TTPConnEndPoint();
 		try {
@@ -33,9 +37,14 @@ public class FTPClient {
 				byte[] data = client.receiveData();
 
 				if (data!=null) {
-					for(byte b:data) {
-						System.out.println(b);
-					}
+					System.out.println("Received file");
+					File f = new File(path + fileName);
+					f.createNewFile();
+					FileOutputStream fs = new FileOutputStream(f);
+				    BufferedOutputStream bs = new BufferedOutputStream(fs);
+				    bs.write(data);
+				    bs.close();
+				    bs = null;
 				}
 			}			
 		} catch (IOException e) {

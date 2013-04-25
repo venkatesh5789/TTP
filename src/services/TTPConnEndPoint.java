@@ -364,7 +364,7 @@ public class TTPConnEndPoint {
 
 		byte[] data = (byte[]) request.getData();
 		byte[] app_data = null;
-		byte[] clientInfo = new byte[5];
+		byte[] clientInfo = new byte[6];
 				
 		if (request.getSize() > 9) {
 			if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
@@ -374,8 +374,9 @@ public class TTPConnEndPoint {
 				for (int i=0;i<4;i++) {
 					clientInfo[i] = (byte) (Integer.parseInt(temp[i]));
 				}
-				clientInfo[4] = (byte)datagram.getDstport();
-				
+				clientInfo[4] = (byte)(datagram.getDstport() & 0xFF);
+				clientInfo[5] = (byte) ((datagram.getDstport() >> 8) & 0xFF);
+					
 				if(data[8]==8) {
 					System.out.println("Received data from " + datagram.getDstaddr() + ":" + datagram.getDstport());
 					app_data = new byte[data.length - 9];

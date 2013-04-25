@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -61,15 +63,18 @@ public class TTPServer {
 	}	
 	public void send(byte[] data) throws IOException {
 		System.out.println("TTP Server received data from FTP");
-		StringBuffer key = new StringBuffer();
+		
+		ByteBuffer bb = ByteBuffer.allocate(2);
+		bb.order(ByteOrder.LITTLE_ENDIAN);
+		bb.put(data[4]);
+		bb.put(data[5]);
+		short port = bb.getShort(0);
+		
+		String key = data[0] + "." + data[1] + "." + data[2] + "." + data[3] + ":" + port;
 
-		for(int i=0;i<4;i++) {
-			key.append(data[i]);
-		}
-		key.append(":" + data[4]);
-		byte[] temp = new byte[data.length - 5];
-		System.arraycopy(data, 5, temp, 0, data.length - 5);
-		Thread serviceThread = new Thread(new ServiceClient(openConnections.get(key),temp));
+		byte[] temp = new byte[data.length - 6];
+		System.arraycopy(data, 6, temp, 0, data.length - 6);
+		Thread serviceThread = new Thread(new ServiceClient(openConnections.get(key.toString()),temp));
 		serviceThread.start();
 	}
 }
