@@ -52,9 +52,8 @@ public class ProxyFTPServer implements Runnable {
 			System.arraycopy(md5Hash, 0, hashMsg, hashIndicator.length + 6, md5Hash.length);
 			
 			ttp.send(hashMsg);
-			Thread.sleep(3000);
+			Thread.sleep(1000);
 			ttp.send(totalData);
-			//ttp.send("EOF".getBytes());
 			
 			System.out.println("FTP Server has sent file to TTP to send to FTP client!");
 		} 

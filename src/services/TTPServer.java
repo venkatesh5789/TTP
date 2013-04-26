@@ -2,15 +2,11 @@ package services;
 
 
 import java.io.IOException;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
-
 import datatypes.Datagram;
 
 public class TTPServer {
@@ -55,7 +51,7 @@ public class TTPServer {
 			}
 		}
 		try {
-			Thread.sleep(3000);
+			Thread.sleep(1000);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}

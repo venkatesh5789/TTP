@@ -119,7 +119,7 @@ public class TTPConnEndPoint {
 
 		case FIN:
 			for (int i = 0; i < 4; i++) {
-				header[i] = (byte) 0;
+				header[i] = isnBytes[i];
 			}
 			for (int i = 4; i < 8; i++) {
 				header[i] = (byte) 0;
@@ -180,8 +180,7 @@ public class TTPConnEndPoint {
 
 			if (lengthOfData > 1451) {
 
-				do {
-					lengthOfData -= 1451;
+				do {				
 					currentCounter = dataCounter;
 
 					for (int i = currentCounter; i < currentCounter + 1451; dataCounter++, i++) {
@@ -192,6 +191,7 @@ public class TTPConnEndPoint {
 						encapsulateAndSendFragment(fragment, false);
 					else
 						encapsulateAndSendFragment(fragment, true);
+					lengthOfData -= 1451;
 				} while (lengthOfData > 0);
 			} else {
 				fragment = data.clone();
@@ -444,6 +444,10 @@ public class TTPConnEndPoint {
 			parent.addData(totalData);
 			System.out.println("Data written to TTPServer buffer");
 		}
+	}
+
+	public void close() {
+		
 	}
 
 }
