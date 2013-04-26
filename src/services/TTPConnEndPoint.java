@@ -177,13 +177,15 @@ public class TTPConnEndPoint {
 			byte[] fragment = new byte[1451];
 			int dataCounter = 0;
 			int currentCounter;
+			int indexController = 0;
 
 			if (lengthOfData > 1451) {
 
-				do {				
+				do {
 					currentCounter = dataCounter;
-
-					for (int i = currentCounter; i < currentCounter + 1451; dataCounter++, i++) {
+					indexController = Math.min(lengthOfData , 1451);
+					
+					for (int i = currentCounter; i < currentCounter + indexController; dataCounter++, i++) {
 						fragment[i % 1451] = data[i];
 					}
 
@@ -191,7 +193,9 @@ public class TTPConnEndPoint {
 						encapsulateAndSendFragment(fragment, false);
 					else
 						encapsulateAndSendFragment(fragment, true);
+					
 					lengthOfData -= 1451;
+					
 				} while (lengthOfData > 0);
 			} else {
 				fragment = data.clone();
