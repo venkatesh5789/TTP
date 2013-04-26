@@ -54,7 +54,11 @@ public class TTPServer {
 				serviceThread.start();
 			}
 		}
-
+		try {
+			Thread.sleep(3000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 		if (!buffer.isEmpty()) {
 			System.out.println("Data sent to FTP");
 			return buffer.pop();
@@ -102,7 +106,6 @@ class ServiceClient implements Runnable {
 			if (datagram != null) {
 				ttp.respond(datagram,parent);
 			} else if (data != null) {
-				System.out.println("Sending data to ttp server endpoint...");
 				ttp.sendData(data);
 			}
 		} catch (IOException e) {

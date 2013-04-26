@@ -4,6 +4,9 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Scanner;
 
 import services.TTPConnEndPoint;
@@ -26,6 +29,9 @@ public class FTPClient {
 		Scanner readfile = new Scanner(System.in);
 		String fileName = readfile.nextLine();
 		String path = System.getProperty("user.dir") + "/ClientFiles/";
+		byte[] hashIndicator = "MD5-HASH".getBytes();
+		byte[] startBytes = new byte[hashIndicator.length];
+		byte[] md5hashRecd = new byte[16];
 
 		TTPConnEndPoint client = new TTPConnEndPoint();
 		try {
@@ -34,22 +40,40 @@ public class FTPClient {
 
 			boolean listening = true;
 			while (listening) {
+				
 				byte[] data = client.receiveData();
 
 				if (data!=null) {
-					System.out.println("Received file");
-					File f = new File(path + fileName);
-					f.createNewFile();
-					FileOutputStream fs = new FileOutputStream(f);
-				    BufferedOutputStream bs = new BufferedOutputStream(fs);
-				    bs.write(data);
-				    bs.close();
-				    bs = null;
+					System.arraycopy(data, 0, startBytes, 0, hashIndicator.length);	
+					
+					if (Arrays.equals(startBytes, hashIndicator)) {
+						System.arraycopy(data, startBytes.length, md5hashRecd, 0, 16);
+					} else {
+						System.out.println("FTP Client received file!");
+
+						MessageDigest md = MessageDigest.getInstance("MD5");
+						byte[] md5HashComputed = md.digest(data);
+
+						if (Arrays.equals(md5HashComputed,md5hashRecd)) {
+							System.out.println("MD5 Hash verified!!");
+							File f = new File(path + fileName);
+							f.createNewFile();
+							FileOutputStream fs = new FileOutputStream(f);
+							BufferedOutputStream bs = new BufferedOutputStream(fs);
+							bs.write(data);
+							bs.close();
+							bs = null;
+						} else {
+							System.out.println("Error in file received! MD5 digest does not match!");
+						}
+					}				
 				}
 			}			
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
 

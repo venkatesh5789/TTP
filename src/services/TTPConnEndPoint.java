@@ -180,7 +180,7 @@ public class TTPConnEndPoint {
 
 			if (lengthOfData > 1451) {
 
-				while (lengthOfData > 0) {
+				do {
 					lengthOfData -= 1451;
 					currentCounter = dataCounter;
 
@@ -192,7 +192,7 @@ public class TTPConnEndPoint {
 						encapsulateAndSendFragment(fragment, false);
 					else
 						encapsulateAndSendFragment(fragment, true);
-				}
+				} while (lengthOfData > 0);
 			} else {
 				fragment = data.clone();
 				encapsulateAndSendFragment(fragment, true);
@@ -242,6 +242,7 @@ public class TTPConnEndPoint {
 		if (recdDatagram.getSize() > 9) {
 			if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
 				acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
+				System.out.println("Received data with Seq no " + acknNum);
 				if(data[8]==8) {
 					app_data = new byte[data.length - 9];
 					for (int i=0; i < app_data.length; i++) {
