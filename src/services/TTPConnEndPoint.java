@@ -174,27 +174,28 @@ public class TTPConnEndPoint {
 		if (nextSeqNum < base + N) {
 
 			int lengthOfData = data.length;
-			byte[] fragment = new byte[1451];
+			byte[] fragment = null;
 			int dataCounter = 0;
 			int currentCounter;
 			int indexController = 0;
 
-			if (lengthOfData > 1451) {
+			if (lengthOfData > 1281) {
 
 				do {
 					currentCounter = dataCounter;
-					indexController = Math.min(lengthOfData , 1451);
+					indexController = Math.min(lengthOfData , 1281);
+					fragment = new byte[indexController];
 					
 					for (int i = currentCounter; i < currentCounter + indexController; dataCounter++, i++) {
-						fragment[i % 1451] = data[i];
+						fragment[i % 1281] = data[i];
 					}
 
-					if (lengthOfData > 1451)
+					if (lengthOfData > 1281)
 						encapsulateAndSendFragment(fragment, false);
 					else
 						encapsulateAndSendFragment(fragment, true);
 					
-					lengthOfData -= 1451;
+					lengthOfData -= 1281;
 					
 				} while (lengthOfData > 0);
 			} else {
@@ -256,9 +257,12 @@ public class TTPConnEndPoint {
 					expectedSeqNum++;
 				}
 				else if(data[8]== 0) {
+					expectedSeqNum++;
 					ArrayList<Byte> dataList = reassemble(data);
 					app_data = new byte[dataList.size()];
-					System.arraycopy(dataList, 0, app_data, 0, app_data.length);
+					for (int i=0;i<dataList.size();i++) {
+						app_data[i] = (byte)dataList.get(i);
+					}
 				}
 			}
 			else {
@@ -291,8 +295,8 @@ public class TTPConnEndPoint {
 	private ArrayList<Byte> reassemble(byte[] data2) throws IOException, ClassNotFoundException {
 		ArrayList<Byte> reassembledData = new ArrayList<Byte>();
 
-		for(byte nextbyte : data2) {
-			reassembledData.add(nextbyte);
+		for(int i=9;i < data2.length;i++) {
+			reassembledData.add(data2[i]);
 		}
 
 		while(true) {
@@ -302,28 +306,26 @@ public class TTPConnEndPoint {
 			if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
 				acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
 
-				for(byte nextbyte : data2) {
-					reassembledData.add(nextbyte);
+				for(int i=9;i < data.length;i++) {
+					reassembledData.add(data[i]);
 				}
 
 				sendAcknowledgement();
 				nextSeqNum++;
-
+				expectedSeqNum++;
+				
 				if(data[8]==0) {
 					continue;
 				}
 				else if(data[8]==8) {
 					break;
 				}
-
 			}
 			else {
 				sendAcknowledgement();
 			}
 		}
-
 		return reassembledData;
-
 	}
 
 	public void sendAcknowledgement() throws IOException {

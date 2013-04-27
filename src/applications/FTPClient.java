@@ -66,7 +66,7 @@ public class FTPClient {
 						} else {
 							System.out.println("Error in file received! MD5 digest does not match!");
 						}
-						client.close();
+						//client.close();
 					}				
 				}
 			}			
