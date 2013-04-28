@@ -57,6 +57,7 @@ public class FTPClient {
 						if (Arrays.equals(md5HashComputed,md5hashRecd)) {
 							System.out.println("MD5 Hash verified!!");
 							File f = new File(path + fileName);
+							//f.mkdir();
 							f.createNewFile();
 							FileOutputStream fs = new FileOutputStream(f);
 							BufferedOutputStream bs = new BufferedOutputStream(fs);
@@ -66,7 +67,7 @@ public class FTPClient {
 						} else {
 							System.out.println("Error in file received! MD5 digest does not match!");
 						}
-						//client.close();
+						client.close();
 					}				
 				}
 			}			

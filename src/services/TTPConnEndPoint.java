@@ -5,22 +5,15 @@ import java.awt.event.ActionListener;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
-import java.net.InetAddress;
-import java.net.SocketException;
 import java.nio.ByteBuffer;
-import java.sql.Time;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Random;
 import java.util.Scanner;
-import javax.swing.Timer;
-
-import applications.client;
-
-import java.util.TimerTask;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
+
+import javax.swing.Timer;
 
 import datatypes.Datagram;
 
@@ -43,6 +36,8 @@ public class TTPConnEndPoint {
 	public static final int DATA = 3;
 	public static final int EOFDATA = 4;
 	public static final int SYNACK = 5;
+	public static final int FINACK = 6;
+	public static final int FINACKACK = 7;
 
 	public TTPConnEndPoint() {
 		datagram = new Datagram();
@@ -146,6 +141,7 @@ public class TTPConnEndPoint {
 			}
 			header[8] = (byte) 8;
 			break;
+			
 		case SYNACK:
 			for (int i = 0; i < 4; i++) {
 				header[i] = isnBytes[i];
@@ -154,6 +150,26 @@ public class TTPConnEndPoint {
 				header[i] = ackBytes[i - 4];
 			}
 			header[8] = (byte) 6;
+			break;
+			
+		case FINACK:
+			for (int i = 0; i < 4; i++) {
+				header[i] = isnBytes[i];
+			}
+			for (int i = 4; i < 8; i++) {
+				header[i] = ackBytes[i - 4];
+			}
+			header[8] = (byte) 3;
+			break;
+		
+		case FINACKACK:
+			for (int i = 0; i < 4; i++) {
+				header[i] = isnBytes[i];
+			}
+			for (int i = 4; i < 8; i++) {
+				header[i] = ackBytes[i - 4];
+			}
+			header[8] = (byte) 16;
 			break;
 		}
 		return header;
@@ -283,6 +299,14 @@ public class TTPConnEndPoint {
 				base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
 				System.out.println("Received ACK for packet no:" + byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}));
 			}
+			if(data[8]== (byte)3) {
+				acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+				expectedSeqNum =  acknNum + 1;
+				base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
+				clock.stop();
+				System.out.println("Received FINACK with seq no:" + acknNum );
+				sendFinackAcknowledgement();
+			}
 			if(base == nextSeqNum) {
 				clock.stop();
 			} else {
@@ -291,6 +315,24 @@ public class TTPConnEndPoint {
 		}
 		return app_data;
 	}
+
+	private void sendFinackAcknowledgement() throws IOException {
+		datagram.setData(createPayloadHeader(FINACKACK));
+		datagram.setSize((short)9);
+		ds.sendDatagram(datagram);
+		System.out.println("Acknowledgement sent for FINACK! No:" + acknNum);
+		
+		clock.removeActionListener(listener);
+		clock.addActionListener(deleteClient);
+		clock.restart();
+	}
+	
+	ActionListener deleteClient = new ActionListener(){
+		public void actionPerformed(ActionEvent event){
+			System.out.println("Deleting the client by setting ds to null");
+			ds = null;
+		}
+	};
 
 	private ArrayList<Byte> reassemble(byte[] data2) throws IOException, ClassNotFoundException {
 		ArrayList<Byte> reassembledData = new ArrayList<Byte>();
@@ -359,6 +401,7 @@ public class TTPConnEndPoint {
 			for (Datagram d: unacknowledgedPackets.values()) {
 				try {
 					ds.sendDatagram(d);
+					System.out.println("Datagram resent!!");
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -437,6 +480,20 @@ public class TTPConnEndPoint {
 				base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
 				System.out.println("Received ACK for packet no:" + byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}));
 			}
+			if(data[8] == (byte)1){
+				unacknowledgedPackets.clear();
+				acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+				datagram.setSize((short) 9);
+				datagram.setData(createPayloadHeader(FINACK));
+				ds.sendDatagram(datagram);
+				
+				System.out.println("FINACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport());
+				expectedSeqNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]}) + 1;
+						
+				clock.restart();
+				unacknowledgedPackets.put(nextSeqNum, datagram);
+				nextSeqNum++;
+			}
 			if(base == nextSeqNum) {
 				clock.stop();
 			} else {
@@ -452,8 +509,17 @@ public class TTPConnEndPoint {
 		}
 	}
 
-	public void close() {
+	public void close() throws IOException, ClassNotFoundException {
+		datagram.setData(createPayloadHeader(FIN));
+		datagram.setSize((short)9);
+		ds.sendDatagram(datagram);
+		System.out.println("FIN sent! Seq No:" + nextSeqNum);
 		
+		unacknowledgedPackets.put(nextSeqNum, datagram);
+		nextSeqNum++;
+		
+		clock.restart();
+		ds.receiveDatagram();
 	}
-
+	
 }

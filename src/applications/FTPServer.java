@@ -1,9 +1,7 @@
 package applications;
 import java.io.IOException;
 import java.net.SocketException;
-import java.util.Scanner;
 
-import services.TTPConnEndPoint;
 import services.TTPServer;
 
 

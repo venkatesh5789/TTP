@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.LinkedList;
+
 import datatypes.Datagram;
 
 public class TTPServer {
@@ -43,7 +44,14 @@ public class TTPServer {
 			else {
 				System.out.println("Connection already exists !");
 			}
-		} else {
+		} 
+		else if (data[8]== (byte)16) {
+			if(openConnections.containsKey(sourceKey)) {
+				openConnections.remove(sourceKey);
+				System.out.println("Connection " + sourceKey + "closed at server !");
+			}
+		}
+		else {
 			if(openConnections.containsKey(sourceKey)) {
 				System.out.println("Received ACK/DATA from existing client");
 				Thread serviceThread = new Thread(new ServiceClient(openConnections.get(sourceKey),request, this));
