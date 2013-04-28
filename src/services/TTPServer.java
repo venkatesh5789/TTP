@@ -47,8 +47,10 @@ public class TTPServer {
 		} 
 		else if (data[8]== (byte)16) {
 			if(openConnections.containsKey(sourceKey)) {
+				Thread serviceThread = new Thread(new ServiceClient(openConnections.get(sourceKey),request, this));
+				serviceThread.start();
 				openConnections.remove(sourceKey);
-				System.out.println("Connection " + sourceKey + "closed at server !");
+				System.out.println("Connection " + sourceKey + " closed at server !");
 			}
 		}
 		else {

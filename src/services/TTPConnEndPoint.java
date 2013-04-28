@@ -303,7 +303,6 @@ public class TTPConnEndPoint {
 				acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
 				expectedSeqNum =  acknNum + 1;
 				base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
-				clock.stop();
 				System.out.println("Received FINACK with seq no:" + acknNum );
 				sendFinackAcknowledgement();
 			}
@@ -325,12 +324,14 @@ public class TTPConnEndPoint {
 		clock.removeActionListener(listener);
 		clock.addActionListener(deleteClient);
 		clock.restart();
+		nextSeqNum++;
 	}
 	
 	ActionListener deleteClient = new ActionListener(){
 		public void actionPerformed(ActionEvent event){
 			System.out.println("Deleting the client by setting ds to null");
 			ds = null;
+			clock.stop();
 		}
 	};
 
@@ -483,16 +484,20 @@ public class TTPConnEndPoint {
 			if(data[8] == (byte)1){
 				unacknowledgedPackets.clear();
 				acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+				expectedSeqNum =  acknNum + 1;
 				datagram.setSize((short) 9);
 				datagram.setData(createPayloadHeader(FINACK));
 				ds.sendDatagram(datagram);
 				
 				System.out.println("FINACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport());
-				expectedSeqNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]}) + 1;
-						
+					
 				clock.restart();
 				unacknowledgedPackets.put(nextSeqNum, datagram);
 				nextSeqNum++;
+			}
+			if(data[8] == (byte)16) {
+				base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
+				System.out.println("Received ACK for packet no:" + byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}));
 			}
 			if(base == nextSeqNum) {
 				clock.stop();
