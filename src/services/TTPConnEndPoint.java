@@ -518,7 +518,9 @@ public class TTPConnEndPoint {
 		unacknowledgedPackets.put(nextSeqNum, datagram);
 		nextSeqNum++;
 		
-		clock.restart();
+		if(base == nextSeqNum)
+			clock.restart();
+		
 		ds.receiveDatagram();
 	}
 	
