@@ -18,24 +18,27 @@ public class FTPClient {
 	 */
 	public static void main(String[] args) {
 
-		System.out.println("Enter server port");
-		Scanner read = new Scanner(System.in);
-		int dstPort = read.nextInt();
-
-		System.out.println("Enter local port");
-		int srcPort = read.nextInt();
-
+		int dstPort = 2221;
+		int srcPort = 2000;
+		
+		String srcAddr = "127.0.0.1";
+		String dstAddr = "127.0.0.1";
+		
 		System.out.println("Enter file name");
 		Scanner readfile = new Scanner(System.in);
 		String fileName = readfile.nextLine();
 		String path = System.getProperty("user.dir") + "/ClientFiles/";
+		
 		byte[] hashIndicator = "MD5-HASH".getBytes();
 		byte[] startBytes = new byte[hashIndicator.length];
 		byte[] md5hashRecd = new byte[16];
 
-		TTPConnEndPoint client = new TTPConnEndPoint();
+		TTPConnEndPoint client = new TTPConnEndPoint(Integer.parseInt(args[0]),Integer.parseInt(args[1]));
+		
 		try {
-			client.open("127.0.0.1", "127.0.0.1", (short)srcPort, (short)dstPort, 10);
+			client.open(srcAddr, dstAddr, (short)srcPort, (short)dstPort, 10);
+			System.out.println("\nEstablised connection to FTP Server at " + dstAddr + ":" + dstPort);
+				
 			client.sendData(fileName.getBytes());
 
 			boolean listening = true;

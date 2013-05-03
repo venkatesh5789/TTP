@@ -32,11 +32,11 @@ public class TTPConnEndPoint {
 	private int N;
 	private int acknNum;
 	private int expectedSeqNum;
+	private int nextFragment;
 	private int time;
 	private Timer clock;
 	private ConcurrentHashMap<Integer,Datagram> unacknowledgedPackets;
 	private LinkedList<Datagram> sendBuffer;
-	private int lastFragmentSent;
 
 	public static final int SYN = 0;
 	public static final int ACK = 1;
@@ -47,28 +47,25 @@ public class TTPConnEndPoint {
 	public static final int FINACK = 6;
 	public static final int FINACKACK = 7;
 
-	public TTPConnEndPoint() {
+	public TTPConnEndPoint(int N, int time) {
 		datagram = new Datagram();
 		recdDatagram = new Datagram();
 		unacknowledgedPackets = new ConcurrentHashMap<Integer,Datagram>();
 		sendBuffer = new LinkedList<Datagram>();
 
-		System.out.println("Enter Send Window Size");
-		Scanner read = new Scanner(System.in);
-		N = read.nextInt();
+		this.N = N;
 
-		System.out.println("Enter Retransmission Timer Interval in milliseconds");		
-		time = read.nextInt();
+		this.time = time;
 
-		clock = new Timer(time,listener);
-		clock.setInitialDelay(time);
+		clock = new Timer(this.time,listener);
+		clock.setInitialDelay(this.time);
 
 		Random rand = new Random();
 		nextSeqNum = rand.nextInt(65536);
 	}
 
-	public TTPConnEndPoint(DatagramService ds) {
-		this();
+	public TTPConnEndPoint(int N, int time, DatagramService ds) {
+		this(N, time);
 		this.ds = ds;
 	}
 
@@ -82,7 +79,7 @@ public class TTPConnEndPoint {
 		datagram.setDstport((short) destPort);
 		datagram.setSize((short) 9);
 		datagram.setData(createPayloadHeader(TTPConnEndPoint.SYN));
-		datagram.setChecksum(calculateChecksum(datagram));
+		datagram.setChecksum((short) -1);
 		this.ds.sendDatagram(datagram);
 		System.out.println("SYN sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with ISN " + nextSeqNum);
 
@@ -184,13 +181,9 @@ public class TTPConnEndPoint {
 		return header;
 	}
 
-	private short calculateChecksum(Datagram datagram) throws IOException {
+	private short calculateChecksum(byte[] payload) throws IOException {
 		Checksum checksum = new CRC32();
-		ByteArrayOutputStream bStream = new ByteArrayOutputStream(1500);
-		ObjectOutputStream oStream = new ObjectOutputStream(bStream);
-		oStream.writeObject(datagram);
-		byte[] data = bStream.toByteArray();
-		checksum.update(data, 0, data.length);
+		checksum.update(payload, 0, payload.length);
 		return (short) checksum.getValue();
 	}
 
@@ -247,11 +240,11 @@ public class TTPConnEndPoint {
 
 		datagram.setData(headerPlusData);
 		datagram.setSize((short)headerPlusData.length);
-		datagram.setChecksum(calculateChecksum(datagram));
+		datagram.setChecksum(calculateChecksum(headerPlusData));
 
 		if (nextSeqNum < base + N) {
+			nextFragment = nextSeqNum;
 			sendFragment(datagram);
-			lastFragmentSent = nextSeqNum;
 		} else {
 			sendBuffer.add(new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
 			System.out.println("Send Window full! Packet " + nextSeqNum + " queued!");
@@ -260,7 +253,7 @@ public class TTPConnEndPoint {
 	}
 	private void sendFragment(Datagram datagram) throws IOException {
 		ds.sendDatagram(datagram);
-		System.out.println("Data sent to " + datagram.getDstaddr() + ":" + datagram.getDstport());
+		System.out.println("Data sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with Seq No " + nextFragment);
 
 		if (base == nextSeqNum) {
 			clock.restart();
@@ -281,23 +274,30 @@ public class TTPConnEndPoint {
 
 		if (recdDatagram.getSize() > 9) {
 			if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
-				acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
-				System.out.println("Received data with Seq no " + acknNum);
-				if(data[8]==8) {
-					app_data = new byte[data.length - 9];
-					for (int i=0; i < app_data.length; i++) {
-						app_data[i] = data[i+9];
+				if (calculateChecksum(data) != recdDatagram.getChecksum()) {
+					System.out.println("CRC error!!");
+					sendAcknowledgement();
+				} else {
+					System.out.println("CRC verified!!");
+					acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
+					System.out.println("Received data with Seq no " + acknNum);
+					
+					if(data[8]==8) {
+						app_data = new byte[data.length - 9];
+						for (int i=0; i < app_data.length; i++) {
+							app_data[i] = data[i+9];
+						}
+						sendAcknowledgement();
+						expectedSeqNum++;
 					}
-					sendAcknowledgement();
-					expectedSeqNum++;
-				}
-				else if(data[8]== 0) {
-					sendAcknowledgement();
-					expectedSeqNum++;
-					ArrayList<Byte> dataList = reassemble(data);
-					app_data = new byte[dataList.size()];
-					for (int i=0;i<dataList.size();i++) {
-						app_data[i] = (byte)dataList.get(i);
+					else if(data[8]== 0) {
+						sendAcknowledgement();
+						expectedSeqNum++;
+						ArrayList<Byte> dataList = reassemble(data);
+						app_data = new byte[dataList.size()];
+						for (int i=0;i<dataList.size();i++) {
+							app_data[i] = (byte)dataList.get(i);
+						}
 					}
 				}
 			}
@@ -318,7 +318,7 @@ public class TTPConnEndPoint {
 			if(data[8]== (byte)2) {
 				base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
 				System.out.println("Received ACK for packet no:" + byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}));
-				
+
 				Set<Integer> keys = unacknowledgedPackets.keySet();
 				for (Integer i: keys) {
 					if (i< base) {
@@ -381,7 +381,7 @@ public class TTPConnEndPoint {
 	private void sendAcknowledgement() throws IOException {
 		datagram.setSize((short)9);
 		datagram.setData(createPayloadHeader(ACK));
-		datagram.setChecksum(calculateChecksum(datagram));
+		datagram.setChecksum((short)-1);
 		ds.sendDatagram(datagram);
 		System.out.println("Acknowledgement sent! No:" + acknNum);
 	}
@@ -389,6 +389,7 @@ public class TTPConnEndPoint {
 	private void sendFinackAcknowledgement() throws IOException {
 		datagram.setSize((short)9);
 		datagram.setData(createPayloadHeader(FINACKACK));
+		datagram.setChecksum((short)-1);
 		ds.sendDatagram(datagram);
 		System.out.println("Acknowledgement sent for FINACK! No:" + acknNum);
 
@@ -428,28 +429,34 @@ public class TTPConnEndPoint {
 
 		if (request.getSize() > 9) {
 			if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
-				acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
-
-				String[] temp = datagram.getDstaddr().split("\\.");				
-				for (int i=0;i<4;i++) {
-					clientInfo[i] = (byte) (Integer.parseInt(temp[i]));
-				}
-				clientInfo[4] = (byte)(datagram.getDstport() & 0xFF);
-				clientInfo[5] = (byte) ((datagram.getDstport() >> 8) & 0xFF);
-
-				if(data[8]==8) {
-					System.out.println("Received data from " + datagram.getDstaddr() + ":" + datagram.getDstport());
-					app_data = new byte[data.length - 9];
-					for (int i=0; i < app_data.length; i++) {
-						app_data[i] = data[i+9];
-					}
+				if (calculateChecksum(data) != request.getChecksum()) {
+					System.out.println("CRC error!!");
 					sendAcknowledgement();
-					expectedSeqNum++;
-				}
-				else if(data[8]== 0) {
-					ArrayList<Byte> dataList = reassemble(data);
-					app_data = new byte[dataList.size()];
-					System.arraycopy(dataList, 0, app_data, 0, app_data.length);
+				} else {
+					System.out.println("CRC verified!!");
+					acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
+
+					String[] temp = datagram.getDstaddr().split("\\.");				
+					for (int i=0;i<4;i++) {
+						clientInfo[i] = (byte) (Integer.parseInt(temp[i]));
+					}
+					clientInfo[4] = (byte)(datagram.getDstport() & 0xFF);
+					clientInfo[5] = (byte) ((datagram.getDstport() >> 8) & 0xFF);
+
+					if(data[8]==8) {
+						System.out.println("Received request from " + datagram.getDstaddr() + ":" + datagram.getDstport());
+						app_data = new byte[data.length - 9];
+						for (int i=0; i < app_data.length; i++) {
+							app_data[i] = data[i+9];
+						}
+						sendAcknowledgement();
+						expectedSeqNum++;
+					}
+					else if(data[8]== 0) {
+						ArrayList<Byte> dataList = reassemble(data);
+						app_data = new byte[dataList.size()];
+						System.arraycopy(dataList, 0, app_data, 0, app_data.length);
+					}
 				}
 			}
 			else {
@@ -465,9 +472,9 @@ public class TTPConnEndPoint {
 				datagram.setDstport((short) request.getSrcport());
 				datagram.setSize((short) 9);
 				datagram.setData(createPayloadHeader(TTPConnEndPoint.SYNACK));
-				datagram.setChecksum(calculateChecksum(datagram));
+				datagram.setChecksum((short)-1);
 				this.ds.sendDatagram(datagram);
-				System.out.println("SYNACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport());
+				System.out.println("SYNACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with Seq no " + nextSeqNum);
 
 				expectedSeqNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]}) + 1;
 
@@ -489,15 +496,15 @@ public class TTPConnEndPoint {
 			if(data[8]== (byte)2) {
 				base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
 				System.out.println("Received ACK for packet no:" + byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}));
-				
+
 				Set<Integer> keys = unacknowledgedPackets.keySet();
 				for (Integer i: keys) {
 					if (i< base) {
 						unacknowledgedPackets.remove(i);
 					}
 				}
-				
-				for (int i = ((base+N)-lastFragmentSent);i>0;i--) {
+
+				for (int i = ((base+N)-nextFragment);i>0;i--) {
 					try {
 						Thread.sleep(2000);
 					} catch (InterruptedException e) {
@@ -505,8 +512,8 @@ public class TTPConnEndPoint {
 					}
 					if (!sendBuffer.isEmpty()) {
 						System.out.println("Queued packet about to be sent!");
+						nextFragment++;
 						sendFragment(sendBuffer.pop());					
-						lastFragmentSent++;
 					}
 				}				
 			}
@@ -516,6 +523,7 @@ public class TTPConnEndPoint {
 				expectedSeqNum =  acknNum + 1;
 				datagram.setSize((short) 9);
 				datagram.setData(createPayloadHeader(FINACK));
+				datagram.setChecksum((short)-1);
 				ds.sendDatagram(datagram);
 
 				System.out.println("FINACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport());
@@ -546,6 +554,8 @@ public class TTPConnEndPoint {
 	public void close() throws IOException, ClassNotFoundException {
 		datagram.setData(createPayloadHeader(FIN));
 		datagram.setSize((short)9);
+		datagram.setChecksum((short)-1);
+
 		ds.sendDatagram(datagram);
 		System.out.println("FIN sent! Seq No:" + nextSeqNum);
 

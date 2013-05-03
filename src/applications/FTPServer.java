@@ -12,7 +12,7 @@ public class FTPServer {
 
 		System.out.println("FTP Server is listening on Port 2221");
 
-		TTPServer ttp_server = new TTPServer();
+		TTPServer ttp_server = new TTPServer(Integer.parseInt(args[0]),Integer.parseInt(args[1]));
 
 		boolean listening = true;
 

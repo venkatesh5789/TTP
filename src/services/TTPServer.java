@@ -14,9 +14,13 @@ public class TTPServer {
 	private DatagramService ds;
 	private HashMap<String, TTPConnEndPoint> openConnections= new HashMap<String, TTPConnEndPoint>();
 	private LinkedList<byte[]> buffer = new LinkedList<byte[]>();
+	private int N;
+	private int time;
 
-	public TTPServer() {
+	public TTPServer(int N, int time) {
 		super();
+		this.N = N;
+		this.time = time;
 	}
 
 	public void addData(byte[] data) {
@@ -35,7 +39,7 @@ public class TTPServer {
 
 		if (data[8] == (byte)4) {
 			if(!openConnections.containsKey(sourceKey)) {
-				server_endPoint = new TTPConnEndPoint(ds);
+				server_endPoint = new TTPConnEndPoint(N, time,ds);
 				openConnections.put(sourceKey, server_endPoint);
 				Thread serviceThread = new Thread(new ServiceClient(server_endPoint,request, this));
 				serviceThread.start();
@@ -55,7 +59,7 @@ public class TTPServer {
 		}
 		else {
 			if(openConnections.containsKey(sourceKey)) {
-				System.out.println("Received ACK/DATA from existing client");
+				System.out.println("Received ACK/REQUEST from existing client");
 				Thread serviceThread = new Thread(new ServiceClient(openConnections.get(sourceKey),request, this));
 				serviceThread.start();
 			}
@@ -66,7 +70,7 @@ public class TTPServer {
 			e.printStackTrace();
 		}
 		if (!buffer.isEmpty()) {
-			System.out.println("Data sent to FTP");
+			System.out.println("Client request passed to FTP");
 			return buffer.pop();
 		} else
 			return null;
