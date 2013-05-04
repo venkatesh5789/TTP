@@ -17,6 +17,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.util.Random;
 
 import datatypes.Datagram;
 
@@ -46,6 +47,25 @@ public class DatagramService {
 		InetAddress IPAddress = InetAddress.getByName(datagram.getDstaddr());
 		DatagramPacket packet = new DatagramPacket(data, data.length,
 				IPAddress, datagram.getDstport());
+		
+		// Send packet
+				/*Random r = new Random();
+				
+				int testProblem = r.nextInt(4) + 1;
+				
+				if(testProblem==1) {
+					sendChangedChecksum(packet);
+				}
+				if(testProblem==2) {
+					Random r1 = new Random();
+					int delay = r1.nextInt(15000 - 3000) + 3000;
+					sendDelayedPacket(packet, delay);
+				}
+				if(testProblem==3) {
+					Random r2 = new Random();
+					int count = r2.nextInt(50 - 5) + 5;
+					sendDuplicatePackets(packet, count);
+				}*/
 
 		// Send packet
 		socket.send(packet);
@@ -66,4 +86,28 @@ public class DatagramService {
 
 		return datagram;
 	}
+	private void sendDelayedPacket(DatagramPacket packet, int delay) throws IOException {
+		try {
+			Thread.sleep(delay);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}		
+	}
+	
+	private void sendDuplicatePackets(DatagramPacket packet, int count) throws IOException {
+		for(int i = 0; i<count; i++)
+			socket.send(packet);
+	}
+	
+	private DatagramPacket sendChangedChecksum (DatagramPacket packet) throws IOException {
+		byte[] data = packet.getData();
+		byte byteToChange = data[data.length - 1];
+		
+		byteToChange ^= 1 << 4;
+		data[data.length - 1] = byteToChange;
+		
+		packet.setData(data);
+		return packet;
+	}
+	
 }
