@@ -2,30 +2,15 @@ package services;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.ListIterator;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
-import java.util.Scanner;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.zip.CRC32;
-import java.util.zip.Checksum;
-
 import javax.swing.Timer;
 
 import datatypes.Datagram;
@@ -76,6 +61,18 @@ public class TTPConnEndPoint {
 		this.ds = ds;
 	}
 
+	/**
+	 * Sends a SYN packet and opens the Connection End Point for receiving data at the client side
+	 * 
+	 * @param src
+	 * @param dest
+	 * @param srcPort
+	 * @param destPort
+	 * @param verbose
+	 * 
+	 * @throws IOException
+	 * @throws ClassNotFoundException
+	 */
 	public void open(String src, String dest, short srcPort, short destPort, int verbose) throws IOException, ClassNotFoundException {
 
 		this.ds = new DatagramService(srcPort, verbose);
@@ -99,6 +96,13 @@ public class TTPConnEndPoint {
 		receiveData();
 	}
 
+	/**
+	 * Takes the various flags as a parameter and uses it to create a header consisting of Sequence Number,
+	 * Acknowledgement number and header flags
+	 * 
+	 * @param flags
+	 * @return
+	 */
 	private byte[] createPayloadHeader(int flags) {
 		byte[] header = new byte[9];
 		byte[] isnBytes = ByteBuffer.allocate(4).putInt(nextSeqNum).array();
@@ -189,6 +193,14 @@ public class TTPConnEndPoint {
 		return header;
 	}
 
+	/**
+	 * Takes a byte array of data and calculates the checksum according to the UDP checksum discussed in class
+	 * 
+	 * @param payload
+	 * @return
+	 * @throws IOException
+	 */
+	
 	private short calculateChecksum(byte[] payload) throws IOException {
 		int length = payload.length;
 		int i = 0;
@@ -225,6 +237,14 @@ public class TTPConnEndPoint {
 		return (short) sum;
 	}
 
+	/**
+	 * Takes a byte array of data, checks if the next sequence number is within the send window, 
+	 * encapsulates the data and sends it.
+	 * 
+	 * @param data
+	 * @throws IOException
+	 */
+	
 	public void sendData(byte[] data) throws IOException {
 
 		if (nextSeqNum < base + N) {
@@ -289,6 +309,7 @@ public class TTPConnEndPoint {
 		}
 		nextSeqNum++;
 	}
+	
 	private void sendFragment(Datagram datagram) throws IOException {
 		ds.sendDatagram(datagram);
 		System.out.println("Data sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with Seq No " + nextFragment);
@@ -300,10 +321,24 @@ public class TTPConnEndPoint {
 		unacknowledgedPackets.put(nextFragment, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
 	}
 
+	/**
+	 * This is what is called when the send window is full, thus the FTP can no longer
+	 * send more data to the TTP for the time being
+	 * 
+	 * @param data
+	 */
 	private void refuse_data(byte[] data) {
 		System.out.println("Send Window full! Please try again later!");
 	}
 
+	/**
+	 * The receive data function for the client side. It reads the incoming packets, and according
+	 * to the packet, it sends it up to the FTP client
+	 * 
+	 * @return
+	 * @throws IOException
+	 * @throws ClassNotFoundException
+	 */
 	public byte[] receiveData() throws IOException, ClassNotFoundException {
 		if (ds != null) {
 			recdDatagram = ds.receiveDatagram(); 
@@ -344,8 +379,6 @@ public class TTPConnEndPoint {
 			else {
 				sendAcknowledgement();
 			}
-
-
 		} else {
 			if (data[8] == (byte)6) {				
 				acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
@@ -385,6 +418,15 @@ public class TTPConnEndPoint {
 		return app_data;
 	}
 
+	/**
+	 * Takes a byte array of data which is the first fragment of fragmented data, and then waits to 
+	 * receive the remaining packets of the fragment. It then reassembles the data and returns it
+	 * 
+	 * @param data2
+	 * @return
+	 * @throws IOException
+	 * @throws ClassNotFoundException
+	 */
 	private ArrayList<Byte> reassemble(byte[] data2) throws IOException, ClassNotFoundException {
 		ArrayList<Byte> reassembledData = new ArrayList<Byte>();
 
@@ -442,6 +484,10 @@ public class TTPConnEndPoint {
 		nextSeqNum++;
 	}
 
+	/**
+	 *  Action listener for when the packet times out
+	 */
+	
 	ActionListener listener = new ActionListener(){
 		public void actionPerformed(ActionEvent event){
 			System.out.println("Timeout for Packet " + base);
@@ -458,6 +504,11 @@ public class TTPConnEndPoint {
 			clock.restart();
 		}
 	};
+	
+	/**
+	 *  Action listener for when the FINACKACK times out, thus signalling to the client
+	 *  that the connection has been closed
+	 */
 	ActionListener deleteClient = new ActionListener(){
 		public void actionPerformed(ActionEvent event){
 			ds = null;
@@ -466,6 +517,15 @@ public class TTPConnEndPoint {
 		}
 	};
 
+	/**
+	 * TTP connection end point at the server side responds to the ACK/Requests from the client
+	 * according to the Go-Back-N standard
+	 * 
+	 * @param request
+	 * @param parent
+	 * @throws IOException
+	 * @throws ClassNotFoundException
+	 */
 	public void respond(Datagram request, TTPServer parent) throws IOException, ClassNotFoundException {
 
 		byte[] data = (byte[]) request.getData();
@@ -619,15 +679,6 @@ public class TTPConnEndPoint {
 			value += (b[i] & 0x000000FF) << shift;
 		}
 		return value;
-	}
-
-	private static byte[] intToByteArray(int a) {
-		byte[] ret = new byte[4];
-		ret[0] = (byte) (a & 0xFF);
-		ret[1] = (byte) ((a >> 8) & 0xFF);
-		ret[2] = (byte) ((a >> 16) & 0xFF);
-		ret[3] = (byte) ((a >> 24) & 0xFF);
-		return ret;
 	}
 
 }

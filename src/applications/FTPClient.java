@@ -1,6 +1,7 @@
 package applications;
 
 import java.io.BufferedOutputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -21,8 +22,8 @@ public class FTPClient {
 		int dstPort = 2221;
 		int srcPort = 2000;
 		
-		String srcAddr = "127.0.0.1";
-		String dstAddr = "127.0.0.1";
+		String srcAddr = "128.237.137.2";
+		String dstAddr = "128.237.136.220";
 		
 		System.out.println("Enter file name");
 		Scanner readfile = new Scanner(System.in);
@@ -73,6 +74,8 @@ public class FTPClient {
 					}				
 				}
 			}			
+		} catch (EOFException e) {
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (ClassNotFoundException e) {

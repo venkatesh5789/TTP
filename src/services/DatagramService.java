@@ -36,6 +36,14 @@ public class DatagramService {
 		socket = new DatagramSocket(port);
 	}
 
+	/**
+	 * Our version of the sendDatagram which includes test cases. It generates a random number, and based on that 
+	 * random number, it either decides to duplicate a packet, delay it, or send it normally. It is designed to 
+	 * simulate a normal connection which may randomly be lossy.
+	 * 
+	 * @param datagram
+	 * @throws IOException
+	 */
 	public void sendDatagram(Datagram datagram) throws IOException {
 		counter++;
 		
@@ -55,13 +63,17 @@ public class DatagramService {
 			int delay = r1.nextInt(7500) + 7500;
 			sendDelayedPacket(packet,delay);
 			System.out.println("Packet sent after delay of " + delay);
-		}  else if(counter%11==0) {
+		}  
+		
+		else if(counter%11==0) {
 			System.out.println("Testing with Duplicate Packets...");
 			Random r2 = new Random();
 			int count = r2.nextInt(3) + 3;
 			sendDuplicatePackets(packet, count);
 			System.out.println("Packet sent " + count + " times");
-		}  else {
+		}
+		
+		else {
 			socket.send(packet);
 		}
 	}
@@ -81,6 +93,15 @@ public class DatagramService {
 
 		return datagram;
 	}
+	
+	/**
+	 * Takes a packet and a delay as parameters. It sends the packet after the given delay.
+	 * This is the test case to check delayed packets.
+	 * 
+	 * @param packet
+	 * @param delay
+	 * @throws IOException
+	 */
 	private void sendDelayedPacket(DatagramPacket packet,int delay) throws IOException {
 		try {
 			Thread.sleep(delay);
@@ -90,6 +111,14 @@ public class DatagramService {
 		socket.send(packet);
 	}
 
+	/**
+	 * Takes a DatagramPacket and a count as a parameter, and sends the packet
+	 * count number of times. This is the test case for duplicate packets.
+	 * 
+	 * @param packet
+	 * @param count
+	 * @throws IOException
+	 */
 	private void sendDuplicatePackets(DatagramPacket packet, int count) throws IOException {
 		for(int i = 0; i<count; i++)
 			socket.send(packet);

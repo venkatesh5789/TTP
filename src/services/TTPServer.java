@@ -31,6 +31,15 @@ public class TTPServer {
 		ds = new DatagramService(srcPort, verbose);
 	}
 
+	/**
+	 * Called by the application layer protocol. Continuously listens on the specified port and creates
+	 * a new TTP connection end point for every connection request
+	 * 
+	 * @return
+	 * @throws IOException
+	 * @throws ClassNotFoundException
+	 */
+	
 	public byte[] receive() throws IOException, ClassNotFoundException {
 		Datagram request = ds.receiveDatagram(); 
 		byte[] data = (byte[]) request.getData();
@@ -77,6 +86,15 @@ public class TTPServer {
 		} else
 			return null;
 	}	
+	
+	/**
+	 * Called by the application layer protocol to send data to the client. Data is passed to the respective
+	 * TTP Connection end point on the server side.
+	 * 
+	 * @param data
+	 * @throws IOException
+	 */
+	
 	public void send(byte[] data) throws IOException {
 		System.out.println("TTP Server received data from FTP");
 		
@@ -95,6 +113,13 @@ public class TTPServer {
 		serviceThread.start();
 	}
 }
+
+/**
+ * New thread to service existing clients. TTP connection uses this to send data using new instances of
+ * this class.
+ *
+ */
+
 class ServiceClient implements Runnable {
 	private TTPConnEndPoint ttp;
 	private Datagram datagram;
