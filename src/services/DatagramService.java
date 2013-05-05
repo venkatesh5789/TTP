@@ -49,24 +49,21 @@ public class DatagramService {
 		DatagramPacket packet = new DatagramPacket(data, data.length,
 				IPAddress, datagram.getDstport());
 		
-	/*	if(counter%5==0) {
+		if(counter%7==0) {
 			System.out.println("Testing with Delayed Packets...");
 			Random r1 = new Random();
 			int delay = r1.nextInt(7500) + 7500;
 			sendDelayedPacket(packet,delay);
 			System.out.println("Packet sent after delay of " + delay);
-		}  else if(counter%7==0) {
+		}  else if(counter%11==0) {
 			System.out.println("Testing with Duplicate Packets...");
 			Random r2 = new Random();
 			int count = r2.nextInt(3) + 3;
 			sendDuplicatePackets(packet, count);
 			System.out.println("Packet sent " + count + " times");
-		} else if (counter%9==0) {
-			System.out.println("Testing with Dropped Packets...");
-		} else {
+		}  else {
 			socket.send(packet);
-		}*/
-		socket.send(packet);
+		}
 	}
 
 	public Datagram receiveDatagram() throws IOException,

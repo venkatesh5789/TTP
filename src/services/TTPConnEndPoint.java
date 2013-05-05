@@ -372,7 +372,9 @@ public class TTPConnEndPoint {
 				base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
 				System.out.println("Received FINACK with seq no:" + acknNum );
 
-				sendFinackAcknowledgement();
+				if (ds!=null) {
+					sendFinackAcknowledgement();
+				}
 			}
 			if(base == nextSeqNum) {
 				clock.stop();
@@ -458,9 +460,9 @@ public class TTPConnEndPoint {
 	};
 	ActionListener deleteClient = new ActionListener(){
 		public void actionPerformed(ActionEvent event){
-			System.out.println("TTP Client closes connection!");
 			ds = null;
 			clock.stop();
+			System.out.println("TTP Client closes connection!");
 		}
 	};
 
