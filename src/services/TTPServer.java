@@ -86,7 +86,7 @@ public class TTPServer {
 		bb.put(data[5]);
 		short port = bb.getShort(0);
 		
-		String key = data[0] + "." + data[1] + "." + data[2] + "." + data[3] + ":" + port;
+		String key = (data[0]&0xFF) + "." + (data[1]&0xFF) + "." + (data[2]&0xFF) + "." + (data[3]&0xFF)+ ":" + port;
 
 		byte[] temp = new byte[data.length - 6];
 		System.arraycopy(data, 6, temp, 0, data.length - 6);

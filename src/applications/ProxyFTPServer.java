@@ -2,6 +2,7 @@ package applications;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -56,7 +57,9 @@ public class ProxyFTPServer implements Runnable {
 			ttp.send(totalData);
 			
 			System.out.println("FTP Server has sent file to TTP to send to FTP client!");
-		} 
+		} catch (FileNotFoundException e) {
+			System.out.println("The file specified does not exist!");
+		}
 		catch (IOException e) {
 			e.printStackTrace();
 		} catch (NoSuchAlgorithmException e) {

@@ -169,6 +169,7 @@ public class TTPConnEndPoint {
 			for (int i = 0; i < 4; i++) {
 				header[i] = isnBytes[i];
 			}
+			System.out.println(nextSeqNum);
 			for (int i = 4; i < 8; i++) {
 				header[i] = ackBytes[i - 4];
 			}
@@ -304,7 +305,9 @@ public class TTPConnEndPoint {
 	}
 
 	public byte[] receiveData() throws IOException, ClassNotFoundException {
-		recdDatagram = ds.receiveDatagram(); 
+		if (ds != null) {
+			recdDatagram = ds.receiveDatagram(); 
+		}
 
 		byte[] data = (byte[]) recdDatagram.getData();
 		byte[] app_data = null;
@@ -368,6 +371,7 @@ public class TTPConnEndPoint {
 				expectedSeqNum =  acknNum + 1;
 				base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
 				System.out.println("Received FINACK with seq no:" + acknNum );
+
 				sendFinackAcknowledgement();
 			}
 			if(base == nextSeqNum) {
