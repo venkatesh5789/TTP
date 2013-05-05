@@ -43,7 +43,6 @@ public class FTPClient {
 
 			boolean listening = true;
 			while (listening) {
-				
 				byte[] data = client.receiveData();
 
 				if (data!=null) {
@@ -70,6 +69,7 @@ public class FTPClient {
 							System.out.println("Error in file received! MD5 digest does not match!");
 						}
 						client.close();
+						//break;
 					}				
 				}
 			}			

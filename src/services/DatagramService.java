@@ -49,7 +49,7 @@ public class DatagramService {
 		DatagramPacket packet = new DatagramPacket(data, data.length,
 				IPAddress, datagram.getDstport());
 		
-		if(counter%5==0) {
+	/*	if(counter%5==0) {
 			System.out.println("Testing with Delayed Packets...");
 			Random r1 = new Random();
 			int delay = r1.nextInt(7500) + 7500;
@@ -65,7 +65,8 @@ public class DatagramService {
 			System.out.println("Testing with Dropped Packets...");
 		} else {
 			socket.send(packet);
-		}
+		}*/
+		socket.send(packet);
 	}
 
 	public Datagram receiveDatagram() throws IOException,

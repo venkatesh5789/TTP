@@ -7,15 +7,22 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.ListIterator;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
 
@@ -35,7 +42,7 @@ public class TTPConnEndPoint {
 	private int nextFragment;
 	private int time;
 	private Timer clock;
-	private ConcurrentHashMap<Integer,Datagram> unacknowledgedPackets;
+	private ConcurrentSkipListMap<Integer,Datagram> unacknowledgedPackets;
 	private LinkedList<Datagram> sendBuffer;
 
 	public static final int SYN = 0;
@@ -50,7 +57,7 @@ public class TTPConnEndPoint {
 	public TTPConnEndPoint(int N, int time) {
 		datagram = new Datagram();
 		recdDatagram = new Datagram();
-		unacknowledgedPackets = new ConcurrentHashMap<Integer,Datagram>();
+		unacknowledgedPackets = new ConcurrentSkipListMap<Integer,Datagram>();
 		sendBuffer = new LinkedList<Datagram>();
 
 		this.N = N;
@@ -191,10 +198,10 @@ public class TTPConnEndPoint {
 		while (length > 1) {
 			firstByte = (payload[i] << 8) & 0xFF00;
 			secondByte = (payload[i + 1]) & 0xFF;
-			
+
 			data = firstByte | secondByte;
 			sum += data;
-			
+
 			if ((sum & 0xFFFF0000) > 0) {
 				sum = sum & 0xFFFF;
 				sum += 1;
@@ -289,7 +296,7 @@ public class TTPConnEndPoint {
 			clock.restart();
 		}
 
-		unacknowledgedPackets.put(nextSeqNum, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
+		unacknowledgedPackets.put(nextFragment, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
 	}
 
 	private void refuse_data(byte[] data) {
@@ -305,13 +312,13 @@ public class TTPConnEndPoint {
 		if (recdDatagram.getSize() > 9) {
 			if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
 				if (calculateChecksum(data) != recdDatagram.getChecksum()) {
-					System.out.println("CRC error!!");
+					System.out.println("Checksum error!!");
 					sendAcknowledgement();
 				} else {
-					System.out.println("CRC verified!!");
+					System.out.println("Checksum verified!!");
 					acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
 					System.out.println("Received data with Seq no " + acknNum);
-					
+
 					if(data[8]==8) {
 						app_data = new byte[data.length - 9];
 						for (int i=0; i < app_data.length; i++) {
@@ -432,14 +439,16 @@ public class TTPConnEndPoint {
 	ActionListener listener = new ActionListener(){
 		public void actionPerformed(ActionEvent event){
 			System.out.println("Timeout for Packet " + base);
-			for (Datagram d: unacknowledgedPackets.values()) {
+			Iterator<Entry<Integer, Datagram>> it = unacknowledgedPackets.entrySet().iterator();
+			while (it.hasNext()) {
 				try {
-					ds.sendDatagram(d);
-					System.out.println("Datagram resent!!");
+					Entry<Integer,Datagram> pair = it.next();
+					ds.sendDatagram(pair.getValue());
+					System.out.println("Datagram with sequence number " + pair.getKey() + " resent!!");
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
-			}
+			}			
 			clock.restart();
 		}
 	};
@@ -460,10 +469,10 @@ public class TTPConnEndPoint {
 		if (request.getSize() > 9) {
 			if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
 				if (calculateChecksum(data) != request.getChecksum()) {
-					System.out.println("CRC error!!");
+					System.out.println("Checksum error!!");
 					sendAcknowledgement();
 				} else {
-					System.out.println("CRC verified!!");
+					System.out.println("Checksum verified!!");
 					acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
 
 					String[] temp = datagram.getDstaddr().split("\\.");				
@@ -532,7 +541,7 @@ public class TTPConnEndPoint {
 					if (i< base) {
 						unacknowledgedPackets.remove(i);
 					}
-				}
+				}				
 
 				for (int i = ((base+N)-nextFragment);i>0;i--) {
 					try {
@@ -595,7 +604,6 @@ public class TTPConnEndPoint {
 		if(base == nextSeqNum)
 			clock.restart();
 
-		ds.receiveDatagram();
 	}
 
 	private static int byteArrayToInt(byte[] b) {

@@ -48,8 +48,7 @@ public class TTPServer {
 			else {
 				System.out.println("Duplicate SYN detected!!");
 				Thread serviceThread = new Thread(new ServiceClient(openConnections.get(sourceKey),request, this));
-				serviceThread.start();
-			
+				serviceThread.start();			
 			}
 		} 
 		else if (data[8]== (byte)16) {
@@ -92,6 +91,7 @@ public class TTPServer {
 		byte[] temp = new byte[data.length - 6];
 		System.arraycopy(data, 6, temp, 0, data.length - 6);
 		Thread serviceThread = new Thread(new ServiceClient(openConnections.get(key.toString()),temp));
+		System.out.println(key);
 		serviceThread.start();
 	}
 }
