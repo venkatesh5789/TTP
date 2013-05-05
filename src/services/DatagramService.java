@@ -26,6 +26,7 @@ public class DatagramService {
 	private int port;
 	private int verbose;
 	private DatagramSocket socket;
+	private int counter;
 
 	public DatagramService(int port, int verbose) throws SocketException {
 		super();
@@ -36,43 +37,39 @@ public class DatagramService {
 	}
 
 	public void sendDatagram(Datagram datagram) throws IOException {
-
+		counter++;
+		
 		ByteArrayOutputStream bStream = new ByteArrayOutputStream(1500);
 		ObjectOutputStream oStream = new ObjectOutputStream(bStream);
 		oStream.writeObject(datagram);
 		oStream.flush();
 
-		// Create Datagram Packet
 		byte[] data = bStream.toByteArray();
 		InetAddress IPAddress = InetAddress.getByName(datagram.getDstaddr());
 		DatagramPacket packet = new DatagramPacket(data, data.length,
 				IPAddress, datagram.getDstport());
 		
-		// Send packet
-				/*Random r = new Random();
-				
-				int testProblem = r.nextInt(4) + 1;
-				
-				if(testProblem==1) {
-					sendChangedChecksum(packet);
-				}
-				if(testProblem==2) {
-					Random r1 = new Random();
-					int delay = r1.nextInt(15000 - 3000) + 3000;
-					sendDelayedPacket(packet, delay);
-				}
-				if(testProblem==3) {
-					Random r2 = new Random();
-					int count = r2.nextInt(50 - 5) + 5;
-					sendDuplicatePackets(packet, count);
-				}*/
-
-		// Send packet
-		socket.send(packet);
+		if(counter%5==0) {
+			System.out.println("Testing with Delayed Packets...");
+			Random r1 = new Random();
+			int delay = r1.nextInt(7500) + 7500;
+			sendDelayedPacket(packet,delay);
+			System.out.println("Packet sent after delay of " + delay);
+		}  else if(counter%7==0) {
+			System.out.println("Testing with Duplicate Packets...");
+			Random r2 = new Random();
+			int count = r2.nextInt(3) + 3;
+			sendDuplicatePackets(packet, count);
+			System.out.println("Packet sent " + count + " times");
+		} else if (counter%9==0) {
+			System.out.println("Testing with Dropped Packets...");
+		} else {
+			socket.send(packet);
+		}
 	}
 
 	public Datagram receiveDatagram() throws IOException,
-			ClassNotFoundException {
+	ClassNotFoundException {
 
 		byte[] buf = new byte[1500];
 		DatagramPacket packet = new DatagramPacket(buf, buf.length);
@@ -86,28 +83,18 @@ public class DatagramService {
 
 		return datagram;
 	}
-	private void sendDelayedPacket(DatagramPacket packet, int delay) throws IOException {
+	private void sendDelayedPacket(DatagramPacket packet,int delay) throws IOException {
 		try {
 			Thread.sleep(delay);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
-		}		
+		}
+		socket.send(packet);
 	}
-	
+
 	private void sendDuplicatePackets(DatagramPacket packet, int count) throws IOException {
 		for(int i = 0; i<count; i++)
 			socket.send(packet);
 	}
-	
-	private DatagramPacket sendChangedChecksum (DatagramPacket packet) throws IOException {
-		byte[] data = packet.getData();
-		byte byteToChange = data[data.length - 1];
-		
-		byteToChange ^= 1 << 4;
-		data[data.length - 1] = byteToChange;
-		
-		packet.setData(data);
-		return packet;
-	}
-	
+
 }

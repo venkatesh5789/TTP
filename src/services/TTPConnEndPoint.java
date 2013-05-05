@@ -182,45 +182,39 @@ public class TTPConnEndPoint {
 	}
 
 	private short calculateChecksum(byte[] payload) throws IOException {
-		/*Checksum checksum = new CRC32();
-		checksum.update(payload, 0, payload.length);
-		return (short) checksum.getValue();*/
 		int length = payload.length;
-	    int i = 0;
+		int i = 0;
 
-	    int sum = 0;
-	    int data;
+		int sum = 0;
+		int data, firstByte, secondByte;
 
-	    // Handle all pairs
-	    while (length > 1) {
-	      // Corrected to include @Andy's edits and various comments on Stack Overflow
-	      data = (((payload[i] << 8) & 0xFF00) | ((payload[i + 1]) & 0xFF));
-	      sum += data;
-	      // 1's complement carry bit correction in 16-bits (detecting sign extension)
-	      if ((sum & 0xFFFF0000) > 0) {
-	        sum = sum & 0xFFFF;
-	        sum += 1;
-	      }
+		while (length > 1) {
+			firstByte = (payload[i] << 8) & 0xFF00;
+			secondByte = (payload[i + 1]) & 0xFF;
+			
+			data = firstByte | secondByte;
+			sum += data;
+			
+			if ((sum & 0xFFFF0000) > 0) {
+				sum = sum & 0xFFFF;
+				sum += 1;
+			}
 
-	      i += 2;
-	      length -= 2;
-	    }
+			i += 2;
+			length -= 2;
+		}
 
-	    // Handle remaining byte in odd length buffers
-	    if (length > 0) {
-	      // Corrected to include @Andy's edits and various comments on Stack Overflow
-	      sum += (payload[i] << 8 & 0xFF00);
-	      // 1's complement carry bit correction in 16-bits (detecting sign extension)
-	      if ((sum & 0xFFFF0000) > 0) {
-	        sum = sum & 0xFFFF;
-	        sum += 1;
-	      }
-	    }
+		if (length > 0) {
+			sum += (payload[i] << 8 & 0xFF00);
+			if ((sum & 0xFFFF0000) > 0) {
+				sum = sum & 0xFFFF;
+				sum += 1;
+			}
+		}
 
-	    // Final 1's complement value correction to 16-bits
-	    sum = ~sum;
-	    sum = sum & 0xFFFF;
-	    return (short) sum;
+		sum = ~sum;
+		sum = sum & 0xFFFF;
+		return (short) sum;
 	}
 
 	public void sendData(byte[] data) throws IOException {

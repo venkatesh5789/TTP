@@ -46,7 +46,10 @@ public class TTPServer {
 				System.out.println("Received SYN from:" + sourceKey);
 			}
 			else {
-				System.out.println("Connection already exists !");
+				System.out.println("Duplicate SYN detected!!");
+				Thread serviceThread = new Thread(new ServiceClient(openConnections.get(sourceKey),request, this));
+				serviceThread.start();
+			
 			}
 		} 
 		else if (data[8]== (byte)16) {
