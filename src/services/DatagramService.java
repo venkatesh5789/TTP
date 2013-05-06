@@ -89,6 +89,7 @@ public class DatagramService {
 		ByteArrayInputStream bStream = new ByteArrayInputStream(
 				packet.getData());
 		ObjectInputStream oStream = new ObjectInputStream(bStream);
+
 		Datagram datagram = (Datagram) oStream.readObject();
 
 		return datagram;

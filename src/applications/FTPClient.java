@@ -22,8 +22,8 @@ public class FTPClient {
 		int dstPort = 2221;
 		int srcPort = 2000;
 		
-		String srcAddr = "128.237.137.2";
-		String dstAddr = "128.237.136.220";
+		String srcAddr = "127.0.0.1";
+		String dstAddr = "127.0.0.1";
 		
 		System.out.println("Enter file name");
 		Scanner readfile = new Scanner(System.in);
@@ -70,12 +70,11 @@ public class FTPClient {
 							System.out.println("Error in file received! MD5 digest does not match!");
 						}
 						client.close();
-						//break;
 					}				
 				}
 			}			
 		} catch (EOFException e) {
-			
+			System.out.println("EOF Exception!! Perhaps you are using the CMU network? Appears to work fine on all other networks we tested and on localhost! Test a text file instead e.g. Sample1.txt!");
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (ClassNotFoundException e) {
